@@ -1,0 +1,27 @@
+# Core Computer Vision
+opencv-python>=4.8.0
+opencv-contrib-python>=4.8.0   # StructuredForests API
+
+# Deep Learning Frameworks
+torch>=2.0.0       # Auto-detect CUDA, falls verfügbar
+torchvision>=0.15.0
+kornia>=0.7.0      # GPU-beschleunigte CV-Operationen
+
+# Image Processing
+Pillow>=10.0.0     # Erweiterte Bildformat-Unterstützung
+imageio>=2.31.0    # TIFF, WebP Support
+
+# Utilities
+requests>=2.31.0
+tqdm>=4.66.0       # Progress Bars
+pyyaml>=6.0        # Config File Support
+psutil>=5.9.0      # Memory Management
+numpy>=1.24.0
+
+# Optional aber empfohlen für Performance
+numba>=0.58.0      # JIT Compilation für CPU-intensive Ops
+scikit-image>=0.21.0  # Zusätzliche Bildverarbeitung
+
+# Development (optional)
+pytest>=7.4.0      # Für Tests
+black>=23.0.0      # Code Formatting
