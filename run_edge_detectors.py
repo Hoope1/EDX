@@ -8,18 +8,16 @@ Mit Progress-Tracking und Memory-Management
 import argparse
 import multiprocessing as mp
 import os
-import shutil
 import sys
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Callable
 
 import cv2
 import numpy as np
 import psutil
 import torch
-import yaml
 from PIL import Image
 from tqdm import tqdm
 
@@ -156,9 +154,9 @@ class ImageProcessor:
 # Batch Processing
 # ------------------------------------------------------
 
-def process_image_batch(args: Tuple[Path, Path, Config]) -> Dict[str, str]:
+def process_image_batch(args: Tuple[Path, Path, Dict, List[Tuple[str, Callable]]]) -> Dict[str, str]:
     """Verarbeite ein Bild mit allen Methoden (für Multiprocessing)"""
-    image_path, output_dir, config_dict = args
+    image_path, output_dir, config_dict, methods = args
     
     # Rekonstruiere Config-Objekt
     config = Config()
@@ -172,7 +170,7 @@ def process_image_batch(args: Tuple[Path, Path, Config]) -> Dict[str, str]:
     
     results = {}
     
-    for method_name, method_func in METHODS:
+    for method_name, method_func in methods:
         _, success, status = processor.process_single_method(
             image_path, method_name, method_func, output_dir
         )
@@ -183,10 +181,11 @@ def process_image_batch(args: Tuple[Path, Path, Config]) -> Dict[str, str]:
 class BatchProcessor:
     """Hauptklasse für Batch-Verarbeitung mit Multiprocessing"""
     
-    def __init__(self, input_dir: Path, output_dir: Path):
+    def __init__(self, input_dir: Path, output_dir: Path, methods: Optional[List[Tuple[str, Callable]]] = None):
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.config = Config()
+        self.methods = methods or METHODS
         
         # Unterstützte Formate aus Config
         self.supported_formats = self.config.config.get('supported_formats', 
@@ -218,7 +217,7 @@ class BatchProcessor:
         """Erstelle Output-Verzeichnisstruktur"""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        for method_name, _ in METHODS:
+        for method_name, _ in self.methods:
             method_dir = self.output_dir / method_name
             method_dir.mkdir(exist_ok=True)
     
@@ -230,12 +229,12 @@ class BatchProcessor:
         processor = ImageProcessor(self.config, memory_mgr)
         
         # Progress Bar für alle Bilder
-        total_ops = len(images) * len(METHODS)
+        total_ops = len(images) * len(self.methods)
         with tqdm(total=total_ops, desc="Verarbeitung") as pbar:
             for image_path in images:
                 pbar.set_postfix({'file': image_path.name})
                 
-                for method_name, method_func in METHODS:
+                for method_name, method_func in self.methods:
                     _, success, status = processor.process_single_method(
                         image_path, method_name, method_func, self.output_dir
                     )
@@ -250,7 +249,7 @@ class BatchProcessor:
         print(f"[info] Verwende parallele Verarbeitung mit {self.max_workers} Prozessen")
         
         # Vorbereite Argumente
-        args_list = [(img, self.output_dir, self.config.config) for img in images]
+        args_list = [(img, self.output_dir, self.config.config, self.methods) for img in images]
         
         # Progress Bars
         total_images = len(images)
@@ -294,8 +293,8 @@ class BatchProcessor:
         print(f"Input-Verzeichnis:  {self.input_dir}")
         print(f"Output-Verzeichnis: {self.output_dir}")
         print(f"Gefundene Bilder:   {len(images)}")
-        print(f"Edge-Methoden:      {len(METHODS)}")
-        print(f"Gesamt-Operationen: {len(images) * len(METHODS)}")
+        print(f"Edge-Methoden:      {len(self.methods)}")
+        print(f"Gesamt-Operationen: {len(images) * len(self.methods)}")
         print(f"CPU-Kerne:          {mp.cpu_count()} (verwendet: {self.max_workers})")
         
         if self.config.use_cuda:
@@ -402,11 +401,13 @@ Beispiele:
     
     # Wenn Methoden-Filter aktiv
     if args.methods:
-        global METHODS
-        METHODS = [(name, func) for name, func in METHODS if name in args.methods]
+        # Filter METHODS basierend auf Auswahl
+        filtered_methods = [(name, func) for name, func in METHODS if name in args.methods]
+    else:
+        filtered_methods = METHODS
     
     # Processor erstellen und ausführen
-    processor = BatchProcessor(args.input_dir, args.output_dir)
+    processor = BatchProcessor(args.input_dir, args.output_dir, filtered_methods)
     
     # Temporäre Config anwenden
     if temp_config:
