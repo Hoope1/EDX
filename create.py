@@ -18,7 +18,6 @@ Aufruf:
 """
 
 import argparse
-import os
 import shutil
 from pathlib import Path
 from textwrap import dedent
@@ -44,7 +43,8 @@ DIRS = [
 # ------------------------------------------------------
 
 # requirements.txt
-REQUIREMENTS = dedent("""
+REQUIREMENTS = dedent(
+    """
 # Core Computer Vision
 opencv-python>=4.8.0
 opencv-contrib-python>=4.8.0   # StructuredForests API
@@ -72,10 +72,12 @@ scikit-image>=0.21.0  # Zusätzliche Bildverarbeitung
 # Development (optional)
 pytest>=7.4.0      # Für Tests
 black>=23.0.0      # Code Formatting
-""").strip()
+"""
+).strip()
 
 # config.yaml
-CONFIG_YAML = dedent("""
+CONFIG_YAML = dedent(
+    """
 # Edge Detection Toolkit Configuration
 # Alle Werte können hier zentral angepasst werden
 
@@ -175,10 +177,12 @@ supported_formats:
   - ".tif"
   - ".webp"
   - ".jp2"  # JPEG 2000
-""").strip()
+"""
+).strip()
 
 # run.bat
-RUN_BAT = dedent(r"""
+RUN_BAT = dedent(
+    r"""
 @echo off
 REM Edge Detection Toolkit - Windows Batch Runner
 REM Optimiert für Windows 11 mit GPU Support
@@ -263,10 +267,12 @@ IF ERRORLEVEL 1 start "" "results"
 
 :END
 pause
-""").strip()
+"""
+).strip()
 
 # README.md (gekürzte Version)
-README_MD = dedent("""
+README_MD = dedent(
+    """
 # Edge Detection Toolkit
 
 Ein GPU-beschleunigtes Toolkit für Batch-Kantenerkennung mit 5 verschiedenen Algorithmen, Multiprocessing-Support und intelligenter Speicherverwaltung.
@@ -325,59 +331,64 @@ Siehe `config.yaml` für alle Einstellungen. Wichtige Parameter:
 ## Lizenz
 
 MIT License
-""").strip()
+"""
+).strip()
 
 # ------------------------------------------------------
 # Hilfsfunktionen
 # ------------------------------------------------------
 
+
 def create_sample_image(path: Path, size: tuple = (512, 512)):
     """Erstelle ein Beispielbild mit Kanten zum Testen"""
     try:
-        import numpy as np
         import cv2
-        
+        import numpy as np
+
         # Erstelle Bild mit geometrischen Formen
         img = np.ones(size + (3,), dtype=np.uint8) * 255
-        
+
         # Rechteck
         cv2.rectangle(img, (50, 50), (200, 200), (0, 0, 255), 3)
-        
+
         # Kreis
         cv2.circle(img, (350, 150), 80, (0, 255, 0), 3)
-        
+
         # Linien
         cv2.line(img, (50, 300), (450, 450), (255, 0, 0), 2)
         cv2.line(img, (450, 300), (50, 450), (255, 0, 0), 2)
-        
+
         # Text
-        cv2.putText(img, "Edge Detection Test", (100, 400), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-        
+        cv2.putText(img, "Edge Detection Test", (100, 400), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+
         # Speichern
         cv2.imwrite(str(path), img)
         return True
-        
+
     except ImportError:
         print("[info] OpenCV nicht verfügbar - Beispielbild wird später erstellt")
         return False
 
+
 def create_file(path: Path, content: str):
     """Erstelle Datei mit Inhalt"""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, 'w', encoding='utf-8', newline='\n') as f:
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(content)
     print(f"[created] {path}")
+
 
 # ------------------------------------------------------
 # Hauptfunktion
 # ------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Edge Detection Toolkit - Projekt-Generator",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=dedent("""
+        epilog=dedent(
+            """
         Dieses Script erstellt die komplette Projektstruktur für das
         Edge Detection Toolkit mit allen Optimierungen.
         
@@ -385,62 +396,62 @@ def main():
           cd edge_detection_tool
           run.bat  # Windows
           # oder manuell für Linux/Mac - siehe README.md
-        """)
+        """
+        ),
     )
-    
-    parser.add_argument("--force", action="store_true",
-                       help="Lösche vorhandenen Ordner vor Erstellung")
-    parser.add_argument("--minimal", action="store_true",
-                       help="Erstelle keine Beispielbilder")
-    
+
+    parser.add_argument("--force", action="store_true", help="Lösche vorhandenen Ordner vor Erstellung")
+    parser.add_argument("--minimal", action="store_true", help="Erstelle keine Beispielbilder")
+
     args = parser.parse_args()
-    
+
     # Bei --force alten Ordner löschen
     if args.force and BASE_DIR.exists():
         print(f"[delete] Lösche {BASE_DIR}")
         shutil.rmtree(BASE_DIR)
-    
+
     # Verzeichnisse erstellen
     print("\n=== Erstelle Verzeichnisstruktur ===")
     for directory in DIRS:
         directory.mkdir(parents=True, exist_ok=True)
         print(f"[mkdir] {directory}")
-    
+
     # Dateien erstellen
     print("\n=== Erstelle Projektdateien ===")
-    
+
     files = [
         (BASE_DIR / "requirements.txt", REQUIREMENTS),
         (BASE_DIR / "config.yaml", CONFIG_YAML),
         (BASE_DIR / "run.bat", RUN_BAT),
         (BASE_DIR / "README.md", README_MD),
     ]
-    
+
     for file_path, content in files:
         create_file(file_path, content)
-    
+
     # Info über große Dateien
     print("\n[INFO] Die folgenden Dateien müssen aus den Artifacts kopiert werden:")
     print("  - detectors.py (aus detectors_optimized)")
     print("  - run_edge_detectors.py (aus run_edge_detectors_optimized)")
-    
+
     # Beispielbilder
     if not args.minimal:
         print("\n=== Erstelle Beispielbilder ===")
         sample_paths = [
             BASE_DIR / "images" / "samples" / "test_shapes.png",
         ]
-        
+
         for sample_path in sample_paths:
             if create_sample_image(sample_path):
                 print(f"[created] {sample_path}")
-    
+
     # Abschluss
     print(f"\n✅ Projekt erfolgreich erstellt in: {BASE_DIR.absolute()}")
     print("\nNächste Schritte:")
     print(f"  1. cd {BASE_DIR}")
     print("  2. Kopiere detectors.py und run_edge_detectors.py aus den Artifacts")
-    print("  3. run.bat  # Für Windows")
+    print("  3. git submodule update --init --recursive  # BDCN")
+    print("  4. run.bat  # Für Windows")
     print("\nOder manuell:")
     print("  python -m venv venv")
     print("  venv\\Scripts\\activate  # Windows")
@@ -448,6 +459,7 @@ def main():
     print("  pip install -r requirements.txt")
     print("  python detectors.py --init-models")
     print("  python run_edge_detectors.py -i images -o results")
+
 
 if __name__ == "__main__":
     main()
