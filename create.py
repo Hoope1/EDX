@@ -20,7 +20,6 @@ Aufruf:
 import argparse
 import os
 import shutil
-import sys
 from pathlib import Path
 from textwrap import dedent
 
@@ -266,85 +265,67 @@ IF ERRORLEVEL 1 start "" "results"
 pause
 """).strip()
 
-# README.md
+# README.md (gekürzte Version)
 README_MD = dedent("""
 # Edge Detection Toolkit
 
-Ein optimiertes Toolkit für verschiedene Kantenerkennungs-Algorithmen mit GPU-Support.
+Ein GPU-beschleunigtes Toolkit für Batch-Kantenerkennung mit 5 verschiedenen Algorithmen, Multiprocessing-Support und intelligenter Speicherverwaltung.
 
 ## Features
 
-- **5 Edge Detection Methoden**: HED, Structured Forests, Kornia, BDCN, Fixed CNN
-- **GPU/CUDA Support**: Automatische Erkennung und Nutzung (optimiert für 4GB VRAM)
+- **5 Edge Detection Methoden**: HED, Structured Forests, Kornia, BDCN (Fallback), Fixed CNN
+- **GPU/CUDA Support**: Automatische Erkennung und Optimierung
 - **Multiprocessing**: Parallele Verarbeitung mehrerer Bilder
-- **Memory Management**: Automatische Anpassung für große Bilder
-- **Erweiterte Formate**: JPG, PNG, TIFF, WebP, BMP, JPEG2000
-- **Progress Tracking**: Fortschrittsanzeigen für alle Operationen
-- **Konfigurierbar**: Zentrale config.yaml für alle Einstellungen
+- **Memory Management**: Automatisches Resizing großer Bilder
+- **Erweiterte Bildformate**: JPG, PNG, TIFF, WebP, BMP, JPEG2000
+- **Progress Tracking**: Fortschrittsbalken für alle Operationen
+- **YAML-Konfiguration**: Zentrale Einstellungsverwaltung
 
 ## Installation
 
-1. Python 3.8+ installieren
-2. `python create.py` ausführen
-3. In den erstellten Ordner wechseln
-4. `run.bat` ausführen (Windows) oder manuell:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Linux/Mac
-   pip install -r requirements.txt
-   python detectors.py --init-models
-   ```
+### Windows Schnellstart
 
-## Nutzung
-
-### Einfache Batch-Verarbeitung:
 ```bash
-python run_edge_detectors.py --input_dir images --output_dir results
+python create.py
+cd edge_detection_tool
+run.bat
 ```
 
-### Erweiterte Optionen:
+### Manuelle Installation
+
 ```bash
-# Nur bestimmte Methoden
+python create.py
+cd edge_detection_tool
+python -m venv venv
+# Windows: venv\\Scripts\\activate
+# Linux/Mac: source venv/bin/activate
+pip install -r requirements.txt
+python detectors.py --init-models
+```
+
+## Verwendung
+
+```bash
+# Basis
+python run_edge_detectors.py --input_dir images --output_dir results
+
+# Erweiterte Optionen
 python run_edge_detectors.py -i images -o results --methods HED Kornia
-
-# Sequentielle Verarbeitung (für Debugging)
-python run_edge_detectors.py -i images -o results --sequential
-
-# Überspringe existierende Dateien
-python run_edge_detectors.py -i images -o results --skip-existing
-
-# Spezifische Worker-Anzahl
-python run_edge_detectors.py -i images -o results --workers 8
+python run_edge_detectors.py -i images -o results --skip-existing --workers 8
 ```
 
 ## Konfiguration
 
-Bearbeite `config.yaml` für:
-- GPU Memory Limits
-- Multiprocessing Einstellungen
-- Output-Formate
-- Edge Detection Parameter
-- Download-Timeouts
+Siehe `config.yaml` für alle Einstellungen. Wichtige Parameter:
 
-## Systemanforderungen
-
-- **Minimal**: 8GB RAM, Quad-Core CPU
-- **Empfohlen**: 16GB RAM, 6+ Core CPU, NVIDIA GPU mit 4GB+ VRAM
-- **OS**: Windows 10/11, Linux, macOS
-
-## Troubleshooting
-
-1. **CUDA nicht gefunden**: Installiere CUDA Toolkit und passende PyTorch Version
-2. **Speicherfehler**: Reduziere `max_image_size` in config.yaml
-3. **Download-Fehler**: Erhöhe `timeout` und `max_retries` in config.yaml
+- `system.use_gpu`: GPU-Nutzung (auto/true/false)
+- `system.max_workers`: Anzahl paralleler Prozesse
+- `output.save_format`: Ausgabeformat (png/jpg/tiff/webp)
 
 ## Lizenz
 
-MIT License - Siehe LICENSE Datei
+MIT License
 """).strip()
-
-# detectors.py (siehe vorherige Antwort - zu lang zum Wiederholen)
-# run_edge_detectors.py (siehe vorherige Antwort - zu lang zum Wiederholen)
 
 # ------------------------------------------------------
 # Hilfsfunktionen
@@ -389,26 +370,6 @@ def create_file(path: Path, content: str):
     print(f"[created] {path}")
 
 # ------------------------------------------------------
-# Import der großen Datei-Inhalte
-# ------------------------------------------------------
-
-# Da die optimierten Versionen von detectors.py und run_edge_detectors.py
-# zu groß für dieses Script sind, werden sie als separate Dateien behandelt.
-# Sie müssen aus den vorherigen Artifacts kopiert werden.
-
-DETECTORS_PY_PLACEHOLDER = dedent("""
-# Diese Datei wird durch die optimierte Version ersetzt.
-# Siehe detectors_optimized.py im Artifacts-Bereich.
-print("Bitte ersetzen Sie diese Datei mit der optimierten Version!")
-""").strip()
-
-RUN_EDGE_PY_PLACEHOLDER = dedent("""
-# Diese Datei wird durch die optimierte Version ersetzt.
-# Siehe run_edge_detectors_optimized.py im Artifacts-Bereich.
-print("Bitte ersetzen Sie diese Datei mit der optimierten Version!")
-""").strip()
-
-# ------------------------------------------------------
 # Hauptfunktion
 # ------------------------------------------------------
 
@@ -431,8 +392,6 @@ def main():
                        help="Lösche vorhandenen Ordner vor Erstellung")
     parser.add_argument("--minimal", action="store_true",
                        help="Erstelle keine Beispielbilder")
-    parser.add_argument("--no-placeholders", action="store_true",
-                       help="Erstelle keine Platzhalter für große Dateien")
     
     args = parser.parse_args()
     
@@ -457,46 +416,31 @@ def main():
         (BASE_DIR / "README.md", README_MD),
     ]
     
-    # Platzhalter oder Hinweis für große Dateien
-    if args.no_placeholders:
-        print("\n[info] Überspringe Platzhalter-Dateien")
-    else:
-        files.extend([
-            (BASE_DIR / "detectors.py", DETECTORS_PY_PLACEHOLDER),
-            (BASE_DIR / "run_edge_detectors.py", RUN_EDGE_PY_PLACEHOLDER),
-        ])
-    
     for file_path, content in files:
         create_file(file_path, content)
+    
+    # Info über große Dateien
+    print("\n[INFO] Die folgenden Dateien müssen aus den Artifacts kopiert werden:")
+    print("  - detectors.py (aus detectors_optimized)")
+    print("  - run_edge_detectors.py (aus run_edge_detectors_optimized)")
     
     # Beispielbilder
     if not args.minimal:
         print("\n=== Erstelle Beispielbilder ===")
         sample_paths = [
             BASE_DIR / "images" / "samples" / "test_shapes.png",
-            BASE_DIR / "images" / "samples" / "test_gradient.png",
         ]
         
         for sample_path in sample_paths:
             if create_sample_image(sample_path):
                 print(f"[created] {sample_path}")
     
-    # Hinweise für große Dateien
-    if not args.no_placeholders:
-        print("\n" + "="*60)
-        print("WICHTIG: Große Dateien")
-        print("="*60)
-        print("Die folgenden Dateien müssen manuell ersetzt werden:")
-        print("1. detectors.py -> Kopieren Sie detectors_optimized.py")
-        print("2. run_edge_detectors.py -> Kopieren Sie run_edge_detectors_optimized.py")
-        print("\nDiese Dateien wurden als Artifacts bereitgestellt.")
-        print("="*60)
-    
     # Abschluss
     print(f"\n✅ Projekt erfolgreich erstellt in: {BASE_DIR.absolute()}")
     print("\nNächste Schritte:")
-    print(f"  cd {BASE_DIR}")
-    print("  run.bat  # Für Windows")
+    print(f"  1. cd {BASE_DIR}")
+    print("  2. Kopiere detectors.py und run_edge_detectors.py aus den Artifacts")
+    print("  3. run.bat  # Für Windows")
     print("\nOder manuell:")
     print("  python -m venv venv")
     print("  venv\\Scripts\\activate  # Windows")
@@ -507,4 +451,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-""").strip()
