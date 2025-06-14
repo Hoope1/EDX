@@ -36,6 +36,7 @@ DIRS = [
     BASE_DIR / "images" / "samples",  # Für Beispielbilder
     BASE_DIR / "results",
     BASE_DIR / "logs",  # Für Log-Dateien
+    BASE_DIR / "bdcn_repo",  # Submodul-Verzeichnis
 ]
 
 # ------------------------------------------------------
@@ -359,7 +360,15 @@ def create_sample_image(path: Path, size: tuple = (512, 512)):
         cv2.line(img, (450, 300), (50, 450), (255, 0, 0), 2)
 
         # Text
-        cv2.putText(img, "Edge Detection Test", (100, 400), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        cv2.putText(
+            img,
+            "Edge Detection Test",
+            (100, 400),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 0, 0),
+            2,
+        )
 
         # Speichern
         cv2.imwrite(str(path), img)
@@ -400,8 +409,12 @@ def main():
         ),
     )
 
-    parser.add_argument("--force", action="store_true", help="Lösche vorhandenen Ordner vor Erstellung")
-    parser.add_argument("--minimal", action="store_true", help="Erstelle keine Beispielbilder")
+    parser.add_argument(
+        "--force", action="store_true", help="Lösche vorhandenen Ordner vor Erstellung"
+    )
+    parser.add_argument(
+        "--minimal", action="store_true", help="Erstelle keine Beispielbilder"
+    )
 
     args = parser.parse_args()
 

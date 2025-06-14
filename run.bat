@@ -37,6 +37,12 @@ REM 4) GPU/CUDA Check
 echo [3/6] Pruefe GPU/CUDA Support...
 python -c "import torch; print('[GPU]', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'Keine CUDA GPU gefunden')"
 
+REM Submodul pruefen
+IF NOT EXIST bdcn_repo\ (
+    echo [WARNING] BDCN-Submodul nicht gefunden!
+    echo Bitte ausfuehren: git submodule update --init --recursive
+)
+
 REM 5) Modelle herunterladen
 echo [4/6] Lade Modelle herunter...
 python detectors.py --init-models

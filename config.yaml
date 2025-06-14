@@ -40,6 +40,12 @@ models:
   structured_forests:
     model_url: "https://github.com/opencv/opencv_extra/raw/master/testdata/cv/ximgproc/model.yml.gz"
     checksum: ""
+
+  bdcn:
+    repo_path: "bdcn_repo"
+    model_path: "bdcn_repo/pretrained/bdcn_pretrained.pth"
+    weights_url: "https://github.com/zijundeng/BDCN/releases/download/v1.0.0/bdcn_pretrained.pth"
+    checksum: ""
     
 # Edge Detection Parameters
 edge_detection:

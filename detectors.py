@@ -72,9 +72,22 @@ class Config:
                 "chunk_size": 8192,
             },
             "edge_detection": {
-                "hed": {"crop_size": 500, "scale": 1.0, "mean": [104.00699, 116.66877, 122.67891]},
-                "kornia": {"low_threshold": 0.1, "high_threshold": 0.2, "kernel_size": 5},
-                "bdcn_fallback": {"blur_kernel": 5, "canny_low": 50, "canny_high": 150, "morph_kernel": 3},
+                "hed": {
+                    "crop_size": 500,
+                    "scale": 1.0,
+                    "mean": [104.00699, 116.66877, 122.67891],
+                },
+                "kornia": {
+                    "low_threshold": 0.1,
+                    "high_threshold": 0.2,
+                    "kernel_size": 5,
+                },
+                "bdcn_fallback": {
+                    "blur_kernel": 5,
+                    "canny_low": 50,
+                    "canny_high": 150,
+                    "morph_kernel": 3,
+                },
                 "fixed_cnn": {"kernel": [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]},
             },
             "output": {
@@ -84,7 +97,16 @@ class Config:
                 "preserve_structure": True,
                 "skip_existing": False,
             },
-            "supported_formats": [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp", ".jp2"],
+            "supported_formats": [
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".bmp",
+                ".tiff",
+                ".tif",
+                ".webp",
+                ".jp2",
+            ],
         }
 
     def _setup_gpu(self):
@@ -128,7 +150,9 @@ class DownloadManager:
     def __init__(self, cfg: Config):
         self.config = cfg.config["downloads"]
 
-    def download_with_progress(self, url: str, dst: Path, checksum: Optional[str] = None) -> bool:
+    def download_with_progress(
+        self, url: str, dst: Path, checksum: Optional[str] = None
+    ) -> bool:
         """Download mit Progress-Bar und optionaler Checksum-Verifizierung"""
         if dst.exists():
             if checksum and self.config["verify_checksums"]:
@@ -144,24 +168,34 @@ class DownloadManager:
         # Download mit Retries
         for attempt in range(self.config["max_retries"]):
             try:
-                print(f"[download] {dst.name} (Versuch {attempt + 1}/{self.config['max_retries']})")
+                print(
+                    f"[download] {dst.name} (Versuch {attempt + 1}/{self.config['max_retries']})"
+                )
 
-                response = requests.get(url, stream=True, timeout=self.config["timeout"])
+                response = requests.get(
+                    url, stream=True, timeout=self.config["timeout"]
+                )
                 response.raise_for_status()
 
                 total_size = int(response.headers.get("content-length", 0))
 
                 # Progress Bar
                 with open(dst, "wb") as f:
-                    with tqdm(total=total_size, unit="B", unit_scale=True, desc=dst.name) as pbar:
-                        for chunk in response.iter_content(chunk_size=self.config["chunk_size"]):
+                    with tqdm(
+                        total=total_size, unit="B", unit_scale=True, desc=dst.name
+                    ) as pbar:
+                        for chunk in response.iter_content(
+                            chunk_size=self.config["chunk_size"]
+                        ):
                             f.write(chunk)
                             pbar.update(len(chunk))
 
                 # Checksum verifizieren
                 if checksum and self.config["verify_checksums"]:
                     if self._verify_checksum(dst, checksum):
-                        print(f"[success] {dst.name} erfolgreich heruntergeladen und verifiziert")
+                        print(
+                            f"[success] {dst.name} erfolgreich heruntergeladen und verifiziert"
+                        )
                         return True
                     else:
                         print(f"[error] {dst.name} Checksum-Fehler")
@@ -297,7 +331,9 @@ def init_models() -> None:
 
         if not weights_success:
             # Versuche Haupt-URL
-            weights_success = downloader.download_with_progress(urls["weights"], weights_path)
+            weights_success = downloader.download_with_progress(
+                urls["weights"], weights_path
+            )
 
             # Fallbacks
             if not weights_success:
@@ -307,12 +343,18 @@ def init_models() -> None:
                         print("[info] Versuche Cloud-Download...")
                         if "drive.google.com" in alt_url:
                             file_id = alt_url.split("/d/")[1].split("/")[0]
-                            weights_success = downloader.download_google_drive(file_id, weights_path)
+                            weights_success = downloader.download_google_drive(
+                                file_id, weights_path
+                            )
                         else:
                             # Dropbox: dl=1 Parameter wichtig
-                            weights_success = downloader.download_with_progress(alt_url, weights_path)
+                            weights_success = downloader.download_with_progress(
+                                alt_url, weights_path
+                            )
                     else:
-                        weights_success = downloader.download_with_progress(alt_url, weights_path)
+                        weights_success = downloader.download_with_progress(
+                            alt_url, weights_path
+                        )
 
                     if weights_success:
                         break
@@ -348,11 +390,33 @@ def init_models() -> None:
 
 
 # ------------------------------------------------------
+# BDCN Integration
+# ------------------------------------------------------
+
+
+def load_bdcn_model(device: torch.device) -> nn.Module:
+    """Lade das BDCN-Netzwerk und die Gewichte."""
+    sys.path.insert(0, str(BDCN_REPO / "model"))
+    from bdcn import BDCN
+    from utils import load_checkpoint
+
+    net = BDCN()
+    checkpoint = torch.load(BDCN_MODEL, map_location=device)
+    if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+        checkpoint = checkpoint["state_dict"]
+    load_checkpoint(net, checkpoint)
+    net.to(device).eval()
+    return net
+
+
+# ------------------------------------------------------
 # Edge Detection Methods (optimiert)
 # ------------------------------------------------------
 
 
-def run_hed(image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] = None) -> np.ndarray:
+def run_hed(
+    image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] = None
+) -> np.ndarray:
     """HED Edge Detection mit Memory Management"""
     proto = HED_DIR / "deploy.prototxt"
     weights = HED_DIR / "hed.caffemodel"
@@ -392,7 +456,9 @@ def run_hed(image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] = 
     return (out * 255).astype("uint8")
 
 
-def run_structured(image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] = None) -> np.ndarray:
+def run_structured(
+    image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] = None
+) -> np.ndarray:
     """Structured Forests Edge Detection"""
     model_path = STRUCT_DIR / "model.yml"
 
@@ -420,7 +486,9 @@ def run_structured(image_path: Union[str, Path], memory_mgr: Optional[MemoryMana
     return (edges * 255).astype("uint8")
 
 
-def run_kornia(image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] = None) -> np.ndarray:
+def run_kornia(
+    image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] = None
+) -> np.ndarray:
     """Kornia Canny Edge Detection mit GPU Support"""
     import kornia
 
@@ -457,29 +525,30 @@ def run_kornia(image_path: Union[str, Path], memory_mgr: Optional[MemoryManager]
     return (edges * 255).astype("uint8")
 
 
-def run_bdcn(image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] = None) -> np.ndarray:
+def run_bdcn(
+    image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] = None
+) -> np.ndarray:
     """BDCN Edge Detection mit verbessertem Fallback"""
-    # Versuche echtes BDCN
-    try:
-        import sys
+    if BDCN_REPO.exists() and BDCN_MODEL.exists():
+        img = cv2.imread(str(image_path))
+        if img is None:
+            raise ValueError(f"Bild konnte nicht geladen werden: {image_path}")
 
-        if BDCN_REPO.exists():
-            sys.path.insert(0, str(BDCN_REPO / "model"))
-            from test_bdcn import BDCNEdgeDetector
+        if memory_mgr:
+            img, _ = memory_mgr.resize_if_needed(img)
 
-            img = cv2.imread(str(image_path))
-            if img is None:
-                raise ValueError(f"Bild konnte nicht geladen werden: {image_path}")
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        tensor = (
+            torch.tensor(gray / 255.0, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+        )
 
-            if memory_mgr:
-                img, scale = memory_mgr.resize_if_needed(img)
+        device = config.device if config else torch.device("cpu")
+        tensor = tensor.to(device)
+        net = load_bdcn_model(device)
 
-            detector = BDCNEdgeDetector()
-            edges = detector.detect(img)
-            return (edges * 255).astype("uint8")
-
-    except ImportError:
-        pass
+        with torch.no_grad():
+            edge = net(tensor)[0].squeeze().cpu().numpy()
+        return (edge * 255).astype("uint8")
 
     # Fallback: Advanced Canny
     print("[info] BDCN nicht verfügbar, verwende erweiterten Canny-Algorithmus")
@@ -498,10 +567,14 @@ def run_bdcn(image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] =
     img_filtered = cv2.bilateralFilter(img, 9, 75, 75)
 
     # Adaptive Threshold für lokale Anpassung
-    adaptive = cv2.adaptiveThreshold(img_filtered, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+    adaptive = cv2.adaptiveThreshold(
+        img_filtered, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
+    )
 
     # Canny auf gefiltertem Bild
-    edges_canny = cv2.Canny(img_filtered, cfg.get("canny_low", 50), cfg.get("canny_high", 150))
+    edges_canny = cv2.Canny(
+        img_filtered, cfg.get("canny_low", 50), cfg.get("canny_high", 150)
+    )
 
     # Kombiniere beide Methoden
     edges_combined = cv2.bitwise_or(edges_canny, adaptive)
@@ -513,7 +586,9 @@ def run_bdcn(image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] =
     return edges_final
 
 
-def run_fixed(image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] = None) -> np.ndarray:
+def run_fixed(
+    image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] = None
+) -> np.ndarray:
     """Fixed Edge CNN (Sobel) mit GPU Support"""
     gray = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
     if gray is None:
@@ -543,7 +618,9 @@ def run_fixed(image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] 
 
     # Verarbeitung
     with torch.no_grad():
-        tensor = torch.tensor(gray / 255.0, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+        tensor = (
+            torch.tensor(gray / 255.0, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+        )
 
         if config:
             tensor = tensor.to(config.device)
@@ -566,10 +643,20 @@ def run_fixed(image_path: Union[str, Path], memory_mgr: Optional[MemoryManager] 
 # ------------------------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Edge Detection Toolkit - Model Management")
-    parser.add_argument("--init-models", action="store_true", help="Download und initialisiere alle Modelle")
-    parser.add_argument("--verify", action="store_true", help="Verifiziere installierte Modelle")
-    parser.add_argument("--gpu-info", action="store_true", help="Zeige GPU Informationen")
+    parser = argparse.ArgumentParser(
+        description="Edge Detection Toolkit - Model Management"
+    )
+    parser.add_argument(
+        "--init-models",
+        action="store_true",
+        help="Download und initialisiere alle Modelle",
+    )
+    parser.add_argument(
+        "--verify", action="store_true", help="Verifiziere installierte Modelle"
+    )
+    parser.add_argument(
+        "--gpu-info", action="store_true", help="Zeige GPU Informationen"
+    )
 
     args = parser.parse_args()
 
@@ -577,7 +664,9 @@ if __name__ == "__main__":
         config = Config()
         if torch.cuda.is_available():
             print(f"CUDA verfügbar: {torch.cuda.get_device_name(0)}")
-            print(f"GPU Speicher: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f}GB")
+            print(
+                f"GPU Speicher: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f}GB"
+            )
         else:
             print("Keine CUDA-fähige GPU gefunden")
 
