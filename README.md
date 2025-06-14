@@ -259,6 +259,8 @@ if not bdcn_model_path.exists():
     print("[download] BDCN pretrained weights")
     downloader.download_with_progress(bdcn_url, bdcn_model_path)
 
+Bei jedem Aufruf von `python detectors.py --init-models` werden die Weights automatisch geladen, sofern `bdcn_repo` vorhanden ist.
+
 
 ---
 
@@ -287,6 +289,7 @@ python detectors.py --verify
 Wenn bdcn_repo korrekt erkannt wird, siehst du:
 
 BDCN Repository: ✓
+BDCN Weights: ✓
 
 
 ---
